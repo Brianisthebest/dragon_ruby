@@ -1,62 +1,23 @@
+FPS = 60
+
 def spawn_target(args)
   size = 64
   {
     x: rand(args.grid.w * 0.4) + args.grid.w * 0.6,
-    y: rand(args.grid.h - size * 2) + size,
+    y: rand(args.grid.h - size * 2) + size - 64,
     w: size,
     h: size,
     path: 'sprites/misc/target.png',
   }
 end
 
-def tick args
-  args.state.player ||= {
-    x: 120,
-    y: 280,
-    w: 100,
-    h: 80,
-    speed: 12,
-    path: 'sprites/misc/dragon-0.png',
-  }
-  args.state.fireballs ||= []
-  args.state.targets ||= [
-    spawn_target(args), spawn_target(args), spawn_target(args)
-  ]
-  args.state.score ||= 0
-  args.state.timer ||= 30 * 60
+def fire_input?(args)
+  args.inputs.keyboard.key_down.z ||
+    args.inputs.keyboard.key_down.j ||
+    args.inputs.controller_one.key_down.a
+end
 
-  args.state.timer -= 1
-
-  if args.state.timer < 0
-    labels = []
-    labels << {
-      x: 40,
-      y: args.grid.h - 40,
-      text: "Game Over!",
-      size_px: 42,
-    }
-    labels << {
-      x: 40,
-      y: args.grid.h - 90,
-      text: "Score: #{args.state.score}",
-      size_px: 30,
-    }
-    labels << {
-      x: 40,
-      y: args.grid.h - 132,
-      text: "Fire to restart",
-      size_px: 26,
-    }
-    args.outputs.labels << labels
-    if args.inputs.keyboard.key_down.z ||
-        args.inputs.keyboard.key_down.j ||
-        args.inputs.controller_one.key_down.a
-      DR.reset
-    end
-
-    return
-  end
-
+def handle_player_movement(args)
   if args.inputs.left
     args.state.player.x -= args.state.player.speed
   elsif args.inputs.right
@@ -84,10 +45,61 @@ def tick args
   if args.state.player.y < 0
     args.state.player.y = 0
   end
+end
 
-  if args.inputs.keyboard.key_down.z ||
-      args.inputs.keyboard.key_down.j ||
-      args.inputs.controller_one.key_down.a
+def game_over_tick(args)
+  labels = []
+  labels << {
+    x: 40,
+    y: args.grid.h - 40,
+    text: "Game Over!",
+    size_px: 42,
+  }
+  labels << {
+    x: 40,
+    y: args.grid.h - 90,
+    text: "Score: #{args.state.score}",
+    size_px: 30,
+  }
+  labels << {
+    x: 40,
+    y: args.grid.h - 132,
+    text: "Fire to restart",
+    size_px: 26,
+  }
+  args.outputs.labels << labels
+
+  if args.state.timer < -30 && fire_input?(args)
+    DR.reset
+  end
+end
+
+def tick args
+  args.state.player ||= {
+    x: 120,
+    y: 280,
+    w: 100,
+    h: 80,
+    speed: 12,
+    path: 'sprites/misc/dragon-0.png',
+  }
+  args.state.fireballs ||= []
+  args.state.targets ||= [
+    spawn_target(args), spawn_target(args), spawn_target(args)
+  ]
+  args.state.score ||= 0
+  args.state.timer ||= 30 * FPS
+
+  args.state.timer -= 1
+
+  if args.state.timer < 0
+    game_over_tick(args)
+    return
+  end
+
+  handle_player_movement(args)
+
+  if fire_input?(args)
     args.state.fireballs << {
       x: args.state.player.x + args.state.player.w - 12,
       y: args.state.player.y + 10,
@@ -107,8 +119,8 @@ def tick args
 
     args.state.targets.each do |target|
       if args.geometry.intersect_rect?(target, fireball)
-        fireball.dead = true
         target.dead = true
+        fireball.dead = true
         args.state.score += 1
         args.state.targets << spawn_target(args)
       end
@@ -130,7 +142,7 @@ def tick args
   labels << {
     x: args.grid.w - 40,
     y: args.grid.h - 40,
-    text: "Time Left: #{(args.state.timer / 60).round}",
+    text: "Time Left: #{(args.state.timer / FPS).round}",
     size_px: 26,
     anchor_x: 1,
   }
