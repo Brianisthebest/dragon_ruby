@@ -3,7 +3,7 @@ FPS = 60
 def spawn_target(args)
   size = 64
   {
-    x: rand(args.grid.w * 0.4) + args.grid.w * 0.6,
+    x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - 64,
     y: rand(args.grid.h - size * 2) + size - 64,
     w: size,
     h: size,
@@ -47,7 +47,16 @@ def handle_player_movement(args)
   end
 end
 
+HIGH_SCORE_FILE = "high-score.txt"
+
 def game_over_tick(args)
+  args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
+
+  if !args.state.saved_high_score && args.state.score > args.state.high_score
+    DR.write_file(HIGH_SCORE_FILE, args.state.score.to_s)
+    args.state.saved_high_score = true
+  end
+
   labels = []
   labels << {
     x: 40,
@@ -67,6 +76,24 @@ def game_over_tick(args)
     text: "Fire to restart",
     size_px: 26,
   }
+
+  if args.state.score > args.state.high_score
+    labels << {
+      x: 260,
+      y: args.grid.h - 90,
+      text: "New high-score!",
+      size_px: 28,
+    }
+  else
+    labels << {
+      x: 260,
+      y: args.grid.h - 90,
+      text: "Score to beat: #{args.state.high_score}",
+      size_px: 28,
+    }
+  end
+
+
   args.outputs.labels << labels
 
   if args.state.timer < -30 && fire_input?(args)
@@ -75,6 +102,10 @@ def game_over_tick(args)
 end
 
 def tick args
+  if Kernel.tick_count == 1
+    args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
+  end
+
   args.state.player ||= {
     x: 120,
     y: 280,
@@ -92,6 +123,11 @@ def tick args
 
   args.state.timer -= 1
 
+  if args.state.timer == 0
+    args.audio[:music].paused = true
+    args.outputs.sounds << "sounds/game-over.wav"
+  end
+
   if args.state.timer < 0
     game_over_tick(args)
     return
@@ -100,6 +136,7 @@ def tick args
   handle_player_movement(args)
 
   if fire_input?(args)
+    args.outputs.sounds << "sounds/fireball.wav"
     args.state.fireballs << {
       x: args.state.player.x + args.state.player.w - 12,
       y: args.state.player.y + 10,
@@ -119,6 +156,7 @@ def tick args
 
     args.state.targets.each do |target|
       if args.geometry.intersect_rect?(target, fireball)
+        args.outputs.sounds << "sounds/target.wav"
         target.dead = true
         fireball.dead = true
         args.state.score += 1
