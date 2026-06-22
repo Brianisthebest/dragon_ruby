@@ -18,7 +18,18 @@ def spawn_cloud(args)
     w: 300,
     h: 250,
     speed: Numeric.rand(10..20),
-    path: 'sprites/misc/cloud1.png'
+    path: "sprites/misc/cloud#{Numeric.rand(1..3)}.png"
+  }
+end
+
+def spawn_explosion(x, y)
+  size = 64
+  {
+    x: x,
+    y: y,
+    h: size,
+    w: size,
+    path: "sprites/misc/explosion-0.png"
   }
 end
 
@@ -133,8 +144,10 @@ def tick args
     w: 100,
     h: 80,
     speed: 12,
-    path: 'sprites/misc/dragon-0.png',
   }
+
+  player_sprite_index = 0.frame_index(count: 6, hold_for: 6, repeat: true)
+  args.state.player.path = "sprites/misc/dragon-#{player_sprite_index}.png"
 
   args.state.fireballs ||= []
   args.state.targets ||= [
@@ -143,6 +156,8 @@ def tick args
   args.state.clouds ||= [
     spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
   ]
+
+  args.state.explosions ||= []
 
   args.state.score ||= 0
   args.state.timer ||= 30 * FPS
@@ -198,16 +213,28 @@ def tick args
         fireball.dead = true
         args.state.score += 1
         args.state.targets << spawn_target(args)
+        args.state.explosions << spawn_explosion(target.x, target.y)
       end
+    end
+
+    args.state.explosions.each do |explosion|
+      # count ||= explosion.path.split('')[23].to_i
+      # until count == 7
+      #   puts explosion.path = "sprites/misc/explosion-#{count}.png"
+      #   count += 1
+      # end
+      explosion.dead = true
+
     end
   end
 
   args.state.targets.reject! { |t| t.dead }
   args.state.fireballs.reject! { |f| f.dead }
   args.state.clouds.reject! { |c| c.dead }
+  args.state.explosions.reject! { |e| e.dead }
 
 
-  args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.targets]
+  args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
 
   labels = []
   labels << {

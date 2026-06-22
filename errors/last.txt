@@ -1,7 +1,9 @@
 * EXCEPTION:
 * ERROR:
-Undefined method spawn_clouds for main.
+Undefined method explosions for main.
 
 
 ** Backtrace:
-*** app/main.rb:144:in tick
+*** app/main.rb:226:in tick
+*** app/main.rb:220:in tick
+*** app/main.rb:201:in tick
