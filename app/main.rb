@@ -11,6 +11,17 @@ def spawn_target(args)
   }
 end
 
+def spawn_cloud(args)
+  {
+    x: args.grid.w,
+    y: rand(args.grid.h - 250),
+    w: 300,
+    h: 250,
+    speed: Numeric.rand(10..20),
+    path: 'sprites/misc/cloud1.png'
+  }
+end
+
 def fire_input?(args)
   args.inputs.keyboard.key_down.z ||
     args.inputs.keyboard.key_down.j ||
@@ -106,6 +117,16 @@ def tick args
     args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
   end
 
+   args.outputs.solids << {
+    x: 0,
+    y: 0,
+    w: args.grid.w,
+    h: args.grid.h,
+    r: 92,
+    g: 120,
+    b: 230,
+  }
+
   args.state.player ||= {
     x: 120,
     y: 280,
@@ -114,10 +135,15 @@ def tick args
     speed: 12,
     path: 'sprites/misc/dragon-0.png',
   }
+
   args.state.fireballs ||= []
   args.state.targets ||= [
     spawn_target(args), spawn_target(args), spawn_target(args)
   ]
+  args.state.clouds ||= [
+    spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
+  ]
+
   args.state.score ||= 0
   args.state.timer ||= 30 * FPS
 
@@ -146,6 +172,17 @@ def tick args
     }
   end
 
+  args.state.clouds.each do |cloud|
+    cloud.x -= cloud.speed
+    cloud_len = cloud.x + cloud.w
+    
+    if cloud_len.negative?
+      cloud.dead = true
+      args.state.clouds << spawn_cloud(args)
+      next
+    end
+  end
+
   args.state.fireballs.each do |fireball|
     fireball.x += args.state.player.speed + 2
 
@@ -167,8 +204,10 @@ def tick args
 
   args.state.targets.reject! { |t| t.dead }
   args.state.fireballs.reject! { |f| f.dead }
+  args.state.clouds.reject! { |c| c.dead }
 
-  args.outputs.sprites << [args.state.player, args.state.fireballs, args.state.targets]
+
+  args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.targets]
 
   labels = []
   labels << {
