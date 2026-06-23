@@ -1,260 +1,326 @@
-FPS = 60
+module Main
+  FPS = 60
 
-def spawn_target(args)
-  size = 64
-  {
-    x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
-    y: rand(args.grid.h - size * 2) + size - 64,
-    w: size,
-    h: size,
-    path: 'sprites/misc/target.png',
-  }
-end
+  def title_tick args
+    if fire_input?(args)
+      args.outputs.sounds << "sounds/game-over.wav"
+      args.state.scene = "gameplay"
+      return
+    end
 
-def spawn_cloud(args)
-  {
-    x: args.grid.w,
-    y: rand(args.grid.h - 250),
-    w: 300,
-    h: 250,
-    speed: Numeric.rand(7..20),
-    path: "sprites/misc/cloud#{Numeric.rand(1..3)}.png"
-  }
-end
+    args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
 
-def spawn_explosion(x, y)
-  size = 64
-  {
-    x: x,
-    y: y,
-    h: size,
-    w: size,
-    path: "sprites/misc/explosion-0.png"
-  }
-end
-
-def fire_input?(args)
-  args.inputs.keyboard.key_down.z ||
-    args.inputs.keyboard.key_down.j ||
-    args.inputs.controller_one.key_down.a
-end
-
-def handle_player_movement(args)
-  if args.inputs.left
-    args.state.player.x -= args.state.player.speed
-  elsif args.inputs.right
-    args.state.player.x += args.state.player.speed
-  end
-
-  if args.inputs.up
-    args.state.player.y += args.state.player.speed
-  elsif args.inputs.down
-    args.state.player.y -= args.state.player.speed
-  end
-
-  if args.state.player.x +  args.state.player.w > args.grid.w
-    args.state.player.x = args.grid.w - args.state.player.w
-  end
-
-  if args.state.player.x < 0
-    args.state.player.x = 0
-  end
-
-  if args.state.player.y + args.state.player.h > args.grid.h
-    args.state.player.y = args.grid.h - args.state.player.h
-  end
-
-  if args.state.player.y < 0
-    args.state.player.y = 0
-  end
-end
-
-HIGH_SCORE_FILE = "high-score.txt"
-
-def game_over_tick(args)
-  args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
-
-  if !args.state.saved_high_score && args.state.score > args.state.high_score
-    DR.write_file(HIGH_SCORE_FILE, args.state.score.to_s)
-    args.state.saved_high_score = true
-  end
-
-  labels = []
-  labels << {
-    x: 40,
-    y: args.grid.h - 40,
-    text: "Game Over!",
-    size_px: 42,
-  }
-  labels << {
-    x: 40,
-    y: args.grid.h - 90,
-    text: "Score: #{args.state.score}",
-    size_px: 30,
-  }
-  labels << {
-    x: 40,
-    y: args.grid.h - 132,
-    text: "Fire to restart",
-    size_px: 26,
-  }
-
-  if args.state.score > args.state.high_score
+    labels = []
     labels << {
-      x: 260,
-      y: args.grid.h - 90,
-      text: "New high-score!",
-      size_px: 28,
+      x: 40,
+      y: args.grid.h - 40,
+      text: "Target Practice",
+      size_px: 34,
     }
-  else
     labels << {
-      x: 260,
-      y: args.grid.h - 90,
+      x: 40,
+      y: args.grid.h - 88,
+      text: "Hit the targets!",
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 120,
+      text: "by brianistheworst",
+    }
+    labels << {
+      x: 40,
+      y: 120,
+      text: "Arrows or WASD to move | Z or J to fire | gamepad works too",
+    }
+    labels << {
+      x: 40,
+      y: 80,
+      text: "Fire to start",
+      size_px: 26,
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 155,
       text: "Score to beat: #{args.state.high_score}",
       size_px: 28,
     }
+
+    args.state.player ||= {
+      x: 120,
+      y: 280,
+      w: 100,
+      h: 80,
+      speed: 12,
+    }
+
+    args.outputs.labels << labels
   end
 
-
-  args.outputs.labels << labels
-
-  if args.state.timer < -30 && fire_input?(args)
-    DR.reset
-  end
-end
-
-def tick args
-  if Kernel.tick_count == 1
-    args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
-  end
-
-   args.outputs.solids << {
-    x: 0,
-    y: 0,
-    w: args.grid.w,
-    h: args.grid.h,
-    r: 92,
-    g: 120,
-    b: 230,
-  }
-
-  args.state.player ||= {
-    x: 120,
-    y: 280,
-    w: 100,
-    h: 80,
-    speed: 12,
-  }
-
-  player_sprite_index = 0.frame_index(count: 6, hold_for: 6, repeat: true)
-  args.state.player.path = "sprites/misc/dragon-#{player_sprite_index}.png"
-
-  args.state.fireballs ||= []
-  args.state.targets ||= [
-    spawn_target(args), spawn_target(args), spawn_target(args)
-  ]
-  args.state.clouds ||= [
-    spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
-  ]
-  
-
-  args.state.explosions ||= []
-
-  args.state.score ||= 0
-  args.state.timer ||= 30 * FPS
-
-  args.state.timer -= 1
-
-  if args.state.timer == 0
-    args.audio[:music].paused = true
-    args.outputs.sounds << "sounds/game-over.wav"
-  end
-
-  if args.state.timer < 0
-    game_over_tick(args)
-    return
-  end
-
-  handle_player_movement(args)
-
-  if fire_input?(args)
-    args.outputs.sounds << "sounds/fireball.wav"
-    args.state.fireballs << {
-      x: args.state.player.x + args.state.player.w - 12,
-      y: args.state.player.y + 10,
-      w: 32,
-      h: 32,
-      path: 'sprites/misc/fireball.png',
+  def spawn_target(args)
+    size = 64
+    {
+      x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
+      y: rand(args.grid.h - size * 2) + size - 64,
+      w: size,
+      h: size,
+      path: 'sprites/misc/target.png',
     }
   end
 
-  args.state.clouds.each do |cloud|
-    cloud.x -= cloud.speed
-    cloud_len = cloud.x + cloud.w
+  def spawn_cloud(args)
+    {
+      x: args.grid.w,
+      y: rand(args.grid.h - 250),
+      w: 300,
+      h: 250,
+      speed: Numeric.rand(7..20),
+      path: "sprites/misc/cloud#{Numeric.rand(1..3)}.png"
+    }
+  end
+
+  def spawn_explosion(x, y)
+    size = 64
+    {
+      x: x,
+      y: y,
+      h: size,
+      w: size,
+    }
+  end
+
+  def fire_input?(args)
+    args.inputs.keyboard.key_down.z ||
+      args.inputs.keyboard.key_down.j ||
+      args.inputs.controller_one.key_down.a
+  end
+
+  def handle_player_movement(args)
+    if args.inputs.left
+      args.state.player.x -= args.state.player.speed
+    elsif args.inputs.right
+      args.state.player.x += args.state.player.speed
+    end
+
+    if args.inputs.up
+      args.state.player.y += args.state.player.speed
+    elsif args.inputs.down
+      args.state.player.y -= args.state.player.speed
+    end
+
+    if args.state.player.x +  args.state.player.w > args.grid.w
+      args.state.player.x = args.grid.w - args.state.player.w
+    end
+
+    if args.state.player.x < 0
+      args.state.player.x = 0
+    end
+
+    if args.state.player.y + args.state.player.h > args.grid.h
+      args.state.player.y = args.grid.h - args.state.player.h
+    end
+
+    if args.state.player.y < 0
+      args.state.player.y = 0
+    end
+  end
+
+  HIGH_SCORE_FILE = "high-score.txt"
+
+  def game_over_tick(args)
+    args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
+
+    args.state.timer -= 1
+
+    if !args.state.saved_high_score && args.state.score > args.state.high_score
+      DR.write_file(HIGH_SCORE_FILE, args.state.score.to_s)
+      args.state.saved_high_score = true
+    end
+
+    labels = []
+    labels << {
+      x: 40,
+      y: args.grid.h - 40,
+      text: "Game Over!",
+      size_px: 42,
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 90,
+      text: "Score: #{args.state.score}",
+      size_px: 30,
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 132,
+      text: "Fire to restart",
+      size_px: 26,
+    }
+
+    if args.state.score > args.state.high_score
+      labels << {
+        x: 260,
+        y: args.grid.h - 90,
+        text: "New high-score!",
+        size_px: 28,
+      }
+    else
+      labels << {
+        x: 260,
+        y: args.grid.h - 90,
+        text: "Score to beat: #{args.state.high_score}",
+        size_px: 28,
+      }
+    end
+
+
+    args.outputs.labels << labels
+
+    if args.state.timer < -30 && fire_input?(args)
+      DR.reset
+    end
+  end
+
+  def gameplay_tick(args)
+    args.outputs.solids << {
+      x: 0,
+      y: 0,
+      w: args.grid.w,
+      h: args.grid.h,
+      r: 92,
+      g: 120,
+      b: 230,
+    }
+
+    args.state.player ||= {
+      x: 120,
+      y: 280,
+      w: 100,
+      h: 80,
+      speed: 12,
+    }
+
+    player_sprite_index = 0.frame_index(count: 6, hold_for: 6, repeat: true)
+    args.state.player.path = "sprites/misc/dragon-#{player_sprite_index}.png"
+
+    args.state.fireballs ||= []
+    args.state.targets ||= [
+      spawn_target(args), spawn_target(args), spawn_target(args)
+    ]
+    args.state.clouds ||= [
+      spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
+    ]
     
-    if cloud_len.negative?
-      cloud.dead = true
-      args.state.clouds << spawn_cloud(args)
-      next
+
+    args.state.explosions ||= []
+
+    args.state.score ||= 0
+    args.state.timer ||= 30 * FPS
+
+    args.state.timer -= 1
+
+    if args.state.timer == 0
+      args.audio[:music].paused = true
+      args.outputs.sounds << "sounds/game-over.wav"
+      args.state.scene = "game_over"
+      return
     end
-  end
 
-  args.state.fireballs.each do |fireball|
-    fireball.x += args.state.player.speed + 2
-
-    if fireball.x > args.grid.w
-      fireball.dead = true
-      next
+    if args.state.timer < 0
+      game_over_tick(args)
+      return
     end
 
-    args.state.targets.each do |target|
-      if args.geometry.intersect_rect?(target, fireball)
-        args.outputs.sounds << "sounds/target.wav"
-        target.dead = true
+    handle_player_movement(args)
+
+    if fire_input?(args)
+      args.outputs.sounds << "sounds/fireball.wav"
+      args.state.fireballs << {
+        x: args.state.player.x + args.state.player.w - 12,
+        y: args.state.player.y + 10,
+        w: 32,
+        h: 32,
+        path: 'sprites/misc/fireball.png',
+      }
+    end
+
+    args.state.clouds.each do |cloud|
+      cloud.x -= cloud.speed
+      cloud_len = cloud.x + cloud.w
+      
+      if cloud_len.negative?
+        cloud.dead = true
+        args.state.clouds << spawn_cloud(args)
+        next
+      end
+    end
+
+    args.state.fireballs.each do |fireball|
+      fireball.x += args.state.player.speed + 2
+
+      if fireball.x > args.grid.w
         fireball.dead = true
-        args.state.score += 1
-        args.state.targets << spawn_target(args)
-        args.state.explosions << spawn_explosion(target.x, target.y)
+        next
+      end
+
+      args.state.targets.each do |target|
+        if args.geometry.intersect_rect?(target, fireball)
+          args.outputs.sounds << "sounds/target.wav"
+          target.dead = true
+          fireball.dead = true
+          args.state.score += 1
+          args.state.targets << spawn_target(args)
+          args.state.explosions << spawn_explosion(target.x, target.y)
+        end
+      end
+
+      args.state.explosion_sprite_index ||= 0
+      args.state.hold_timer ||= 0
+    
+      args.state.explosions.each do |explosion|
+        if args.state.explosion_sprite_index >= 6
+          explosion.dead = true
+          args.state.explosion_sprite_index = 0
+        else
+          args.state.explosion_sprite_index += 1
+          explosion.path = "sprites/misc/explosion-#{args.state.explosion_sprite_index}.png"
+        end
       end
     end
 
-    args.state.explosion_sprite_index ||= 0
-    args.state.hold_timer ||= 0
-  
-    args.state.explosions.each do |explosion|
-      if args.state.explosion_sprite_index >= 6
-        explosion.dead = true
-        args.state.explosion_sprite_index = 0
-      else
-        args.state.explosion_sprite_index += 1
-        explosion.path = "sprites/misc/explosion-#{args.state.explosion_sprite_index}.png"
-      end
-    end
+    args.state.targets.reject! { |t| t.dead }
+    args.state.fireballs.reject! { |f| f.dead }
+    args.state.clouds.reject! { |c| c.dead }
+    args.state.explosions.reject! { |e| e.dead }
+
+    args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
+
+    labels = []
+    labels << {
+      x: 40,
+      y: args.grid.h - 40,
+      text: "Score: #{args.state.score}",
+      size_px: 30,
+    }
+    labels << {
+      x: args.grid.w - 40,
+      y: args.grid.h - 40,
+      text: "Time Left: #{(args.state.timer / FPS).round}",
+      size_px: 26,
+      anchor_x: 1,
+    }
+    args.outputs.labels << labels
   end
 
-  args.state.targets.reject! { |t| t.dead }
-  args.state.fireballs.reject! { |f| f.dead }
-  args.state.clouds.reject! { |c| c.dead }
-  args.state.explosions.reject! { |e| e.dead }
+  def tick args
+    if Kernel.tick_count == 1
+      args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
+    end
 
+    args.state.scene ||= "title"
 
-  args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
+    send("#{args.state.scene}_tick", args)
+  end
 
-  labels = []
-  labels << {
-    x: 40,
-    y: args.grid.h - 40,
-    text: "Score: #{args.state.score}",
-    size_px: 30,
-  }
-  labels << {
-    x: args.grid.w - 40,
-    y: args.grid.h - 40,
-    text: "Time Left: #{(args.state.timer / FPS).round}",
-    size_px: 26,
-    anchor_x: 1,
-  }
-  args.outputs.labels << labels
 end
 
 DR.reset
