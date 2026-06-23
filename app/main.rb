@@ -217,14 +217,17 @@ def tick args
       end
     end
 
+    args.state.explosion_sprite_index ||= 0
+    args.state.hold_timer ||= 0
+  
     args.state.explosions.each do |explosion|
-      # count ||= explosion.path.split('')[23].to_i
-      # until count == 7
-      #   puts explosion.path = "sprites/misc/explosion-#{count}.png"
-      #   count += 1
-      # end
-      explosion.dead = true
-
+      if args.state.explosion_sprite_index >= 6
+        explosion.dead = true
+        args.state.explosion_sprite_index = 0
+      else
+        args.state.explosion_sprite_index += 1
+        explosion.path = "sprites/misc/explosion-#{args.state.explosion_sprite_index}.png"
+      end
     end
   end
 
