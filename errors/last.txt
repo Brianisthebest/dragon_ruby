@@ -1,8 +1,7 @@
 * EXCEPTION:
 * ERROR:
-Undefined method sprites for main.
+Undefined method _tick for main.
 
 
 ** Backtrace:
-*** app/main.rb:59:in title_tick
-*** app/main.rb:325:in tick
+*** app/main.rb:322:in tick

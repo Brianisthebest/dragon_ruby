@@ -214,7 +214,7 @@ module Main
     args.state.explosions ||= []
 
     args.state.score ||= 0
-    args.state.timer ||= 30 * FPS
+    args.state.timer ||= 10 * FPS
 
     args.state.timer -= 1
 
@@ -312,7 +312,7 @@ module Main
   end
 
   def tick args
-    if Kernel.tick_count == 1
+    if args.state.scene == "title"
       args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
     end
 
