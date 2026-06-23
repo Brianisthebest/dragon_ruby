@@ -17,7 +17,7 @@ def spawn_cloud(args)
     y: rand(args.grid.h - 250),
     w: 300,
     h: 250,
-    speed: Numeric.rand(10..20),
+    speed: Numeric.rand(7..20),
     path: "sprites/misc/cloud#{Numeric.rand(1..3)}.png"
   }
 end
@@ -154,8 +154,9 @@ def tick args
     spawn_target(args), spawn_target(args), spawn_target(args)
   ]
   args.state.clouds ||= [
-    spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
+    spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
   ]
+  
 
   args.state.explosions ||= []
 
