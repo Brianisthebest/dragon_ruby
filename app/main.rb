@@ -139,6 +139,14 @@ module Main
   end
 
   def gameplay_tick(args)
+    if args.inputs.keyboard.key_down.p
+      args.state.paused = !args.state.paused
+    end
+
+    if args.state.paused
+      paused_tick(args)
+      return
+    end
     args.outputs.solids << {
       x: 0,
       y: 0,
@@ -273,6 +281,35 @@ module Main
     args.outputs.labels << labels
   end
 
+  def paused_tick(args)
+    args.outputs.solids << {
+      x: 0,
+      y: 0,
+      w: args.grid.w,
+      h: args.grid.h,
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 180
+    }
+
+    args.outputs.labels << {
+      x: args.grid.w / 2,
+      y: args.grid.h / 2 + 40,
+      text: "Paused",
+      size_px: 40,
+      anchor_x: 0.5
+    }
+
+    args.outputs.labels << {
+      x: args.grid.w / 2,
+      y: args.grid.h / 2,
+      text: "Press P to Resume",
+      size_px: 24,
+      anchor_x: 0.5
+    }
+  end
+
   def title_tick(args)
     if fire_input?(args)
       args.outputs.sounds << "sounds/game-over.wav"
@@ -302,7 +339,7 @@ module Main
     labels << {
       x: 40,
       y: 120,
-      text: "Arrows or WASD to move | Z or J to fire | gamepad works too",
+      text: "Arrows or WASD to move | Z or J to fire | P to pause | gamepad works too",
     }
     labels << {
       x: 40,
