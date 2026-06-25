@@ -1,61 +1,6 @@
 module Main
   FPS = 60
 
-  def title_tick args
-    if fire_input?(args)
-      args.outputs.sounds << "sounds/game-over.wav"
-      args.state.scene = "gameplay"
-      return
-    end
-
-    args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
-
-    labels = []
-    labels << {
-      x: 40,
-      y: args.grid.h - 40,
-      text: "Target Practice",
-      size_px: 34,
-    }
-    labels << {
-      x: 40,
-      y: args.grid.h - 88,
-      text: "Hit the targets!",
-    }
-    labels << {
-      x: 40,
-      y: args.grid.h - 120,
-      text: "by brianistheworst",
-    }
-    labels << {
-      x: 40,
-      y: 120,
-      text: "Arrows or WASD to move | Z or J to fire | gamepad works too",
-    }
-    labels << {
-      x: 40,
-      y: 80,
-      text: "Fire to start",
-      size_px: 26,
-    }
-    labels << {
-      x: 40,
-      y: args.grid.h - 155,
-      text: "Score to beat: #{args.state.high_score}",
-      size_px: 28,
-    }
-
-    args.state.player ||= {
-      x: 120,
-      y: 280,
-      w: 100,
-      h: 80,
-      speed: 12,
-    }
-
-    args.outputs.labels << labels
-  end
-
   def spawn_target(args)
     size = 64
     {
@@ -85,6 +30,8 @@ module Main
       y: y,
       h: size,
       w: size,
+      born_at: Kernel.tick_count,
+      path: "sprites/misc/explosion-0.png"
     }
   end
 
@@ -122,6 +69,17 @@ module Main
     if args.state.player.y < 0
       args.state.player.y = 0
     end
+  end
+
+  def play_music(args, song)
+    current = args.audio[:music]
+
+    return if current && current.input == song && !current.paused
+
+    args.audio[:music] = {
+      input: song,
+      looping: true
+    }
   end
 
   HIGH_SCORE_FILE = "high-score.txt"
@@ -214,12 +172,12 @@ module Main
     args.state.explosions ||= []
 
     args.state.score ||= 0
-    args.state.timer ||= 10 * FPS
+    args.state.timer ||= 20 * FPS
 
     args.state.timer -= 1
 
     if args.state.timer == 0
-      args.audio[:music].paused = true
+      args.audio.delete(:music)
       args.outputs.sounds << "sounds/game-over.wav"
       args.state.scene = "game_over"
       return
@@ -239,6 +197,8 @@ module Main
         y: args.state.player.y + 10,
         w: 32,
         h: 32,
+        start_y: args.state.player.y + 10,
+        born_at: Kernel.tick_count,
         path: 'sprites/misc/fireball.png',
       }
     end
@@ -257,6 +217,10 @@ module Main
     args.state.fireballs.each do |fireball|
       fireball.x += args.state.player.speed + 2
 
+      age = Kernel.tick_count - fireball.born_at
+
+      fireball.y = fireball.start_y + Math.sin(age * 0.3) * 5
+
       if fireball.x > args.grid.w
         fireball.dead = true
         next
@@ -272,18 +236,16 @@ module Main
           args.state.explosions << spawn_explosion(target.x, target.y)
         end
       end
+    end
 
-      args.state.explosion_sprite_index ||= 0
-      args.state.hold_timer ||= 0
-    
-      args.state.explosions.each do |explosion|
-        if args.state.explosion_sprite_index >= 6
-          explosion.dead = true
-          args.state.explosion_sprite_index = 0
-        else
-          args.state.explosion_sprite_index += 1
-          explosion.path = "sprites/misc/explosion-#{args.state.explosion_sprite_index}.png"
-        end
+    args.state.explosions.each do |explosion|
+      age = Kernel.tick_count -  explosion.born_at
+      sprite_index = age.idiv(4)
+
+      if sprite_index >= 6
+        explosion.dead = true
+      else
+        explosion.path = "sprites/misc/explosion-#{sprite_index}.png"
       end
     end
 
@@ -311,16 +273,77 @@ module Main
     args.outputs.labels << labels
   end
 
-  def tick args
-    if args.state.scene == "title"
-      args.audio[:music] = { input: "sounds/flight.ogg", looping: true}
+  def title_tick(args)
+    if fire_input?(args)
+      args.outputs.sounds << "sounds/game-over.wav"
+      args.state.scene = "gameplay"
+      return
     end
 
+    args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
+
+    labels = []
+    labels << {
+      x: 40,
+      y: args.grid.h - 40,
+      text: "Target Practice",
+      size_px: 34,
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 88,
+      text: "Hit the targets!",
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 120,
+      text: "by brianistheworst",
+    }
+    labels << {
+      x: 40,
+      y: 120,
+      text: "Arrows or WASD to move | Z or J to fire | gamepad works too",
+    }
+    labels << {
+      x: 40,
+      y: 80,
+      text: "Fire to start",
+      size_px: 26,
+    }
+    labels << {
+      x: 40,
+      y: args.grid.h - 155,
+      text: "Score to beat: #{args.state.high_score}",
+      size_px: 28,
+    }
+
+    args.state.player ||= {
+      x: 120,
+      y: 280,
+      w: 100,
+      h: 80,
+      speed: 12,
+    }
+
+    args.outputs.labels << labels
+  end
+
+  def tick(args)
     args.state.scene ||= "title"
+
+    if args.state.previous_scene != args.state.scene
+      case args.state.scene
+      when "title"
+        play_music(args, "sounds/title-music.mp3")
+      when "gameplay"
+        play_music(args,  "sounds/flight.ogg")
+      end
+
+      args.state.previous_scene = args.state.scene
+    end
 
     send("#{args.state.scene}_tick", args)
   end
-
 end
 
 DR.reset
