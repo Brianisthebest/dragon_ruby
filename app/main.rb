@@ -392,6 +392,14 @@ module Main
       speed: 12,
     }
 
+    args.outputs.sprites << {
+      x: -20,
+      y: 225, 
+      w: 350,
+      h: 350,
+      path: 'sprites/misc/title_dragon.png'
+
+    }
     args.outputs.labels << labels
   end
 
