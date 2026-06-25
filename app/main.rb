@@ -143,13 +143,26 @@ module Main
       args.state.paused = !args.state.paused
     end
 
+    args.state.shake ||= 0
+
+    shake_x = 0
+    shake_y = 0
+
+    if args.state.shake > 0
+      shake_x = Numeric.rand(-args.state.shake..args.state.shake)
+      shake_y = Numeric.rand(-args.state.shake..args.state.shake)
+
+      args.state.shake -= 1
+    end
+
     if args.state.paused
       paused_tick(args)
       return
     end
+
     args.outputs.solids << {
-      x: 0,
-      y: 0,
+      x: shake_x,
+      y: shake_y,
       w: args.grid.w,
       h: args.grid.h,
       r: 92,
@@ -162,7 +175,7 @@ module Main
       y: 280,
       w: 100,
       h: 80,
-      speed: 12,
+      speed: 12
     }
 
     player_sprite_index = 0.frame_index(count: 6, hold_for: 6, repeat: true)
@@ -175,7 +188,6 @@ module Main
     args.state.clouds ||= [
       spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
     ]
-    
 
     args.state.explosions ||= []
 
@@ -184,14 +196,14 @@ module Main
 
     args.state.timer -= 1
 
-    if args.state.timer == 0
+    if args.state.timer.zero?
       args.audio.delete(:music)
       args.outputs.sounds << "sounds/game-over.wav"
       args.state.scene = "game_over"
       return
     end
 
-    if args.state.timer < 0
+    if args.state.timer.negative?
       game_over_tick(args)
       return
     end
@@ -214,7 +226,7 @@ module Main
     args.state.clouds.each do |cloud|
       cloud.x -= cloud.speed
       cloud_len = cloud.x + cloud.w
-      
+
       if cloud_len.negative?
         cloud.dead = true
         args.state.clouds << spawn_cloud(args)
@@ -242,6 +254,8 @@ module Main
           args.state.score += 1
           args.state.targets << spawn_target(args)
           args.state.explosions << spawn_explosion(target.x, target.y)
+
+          args.state.shake = 8
         end
       end
     end
@@ -262,7 +276,23 @@ module Main
     args.state.clouds.reject! { |c| c.dead }
     args.state.explosions.reject! { |e| e.dead }
 
-    args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
+    # args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
+    sprites = []
+
+    [
+      args.state.clouds,
+      [args.state.player],
+      args.state.fireballs,
+      args.state.explosions,
+      args.state.targets
+    ].flatten.each do |sprite|
+      sprites << sprite.merge(
+        x: sprite.x + shake_x,
+        y: sprite.y + shake_y
+      )
+    end
+
+    args.outputs.sprites << sprites
 
     labels = []
     labels << {
