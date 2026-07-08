@@ -26,20 +26,22 @@ module Main
       next
     end
 
-    args.state.targets.each do |target|
-      if args.geometry.intersect_rect?(target, fireball)
-        args.outputs.sounds << "sounds/target.wav"
-        target.dead = true
-        fireball.dead = true
-        if target.points == 1
-          args.state.score += target.points
-          args.state.targets << spawn_target(args)
-        else
-          args.state.score += target.points
-        end
-        args.state.explosions << spawn_explosion(target.x, target.y)
+      args.state.targets.each do |target|
+        if args.geometry.intersect_rect?(target, fireball)
+          args.outputs.sounds << "sounds/target.wav"
+          target.dead = true
+          fireball.dead = true
 
-        args.state.shake = 8
+          if target.points == 1
+            args.state.score += target.points
+            args.state.targets << spawn_target(args)
+          else
+            args.state.score += target.points
+          end
+
+          args.state.explosions << spawn_explosion(target.x, target.y)
+
+          args.state.shake = 8
         end
       end
     end
