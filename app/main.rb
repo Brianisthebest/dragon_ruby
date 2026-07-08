@@ -13,9 +13,40 @@ module Main
     }
   end
 
+  def update_fireballs_and_targets(args)
+    args.state.fireballs.each do |fireball|
+    fireball.x += args.state.player.speed + 2
+
+    age = Kernel.tick_count - fireball.born_at
+
+    fireball.y = fireball.start_y + Math.sin(age * 0.3) * 5
+
+    if fireball.x > args.grid.w
+      fireball.dead = true
+      next
+    end
+
+    args.state.targets.each do |target|
+      if args.geometry.intersect_rect?(target, fireball)
+        args.outputs.sounds << "sounds/target.wav"
+        target.dead = true
+        fireball.dead = true
+        if target.points == 1
+          args.state.score += target.points
+          args.state.targets << spawn_target(args)
+        else
+          args.state.score += target.points
+        end
+        args.state.explosions << spawn_explosion(target.x, target.y)
+
+        args.state.shake = 8
+        end
+      end
+    end
+  end
+
   def spawn_gold_target(args)
     size = 64
-
     {
       x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
       y: rand(args.grid.h - size * 2) + size - 64,
@@ -39,6 +70,40 @@ module Main
     }
   end
 
+  def update_clouds(args)
+    args.state.clouds.each do |cloud|
+      cloud.x -= cloud.speed
+      cloud_len = cloud.x + cloud.w
+
+      if cloud_len.negative?
+        cloud.dead = true
+        args.state.clouds << spawn_cloud(args)
+        next
+      end
+    end
+  end
+
+  def update_golden_targets(args)
+    args.state.targets.each do |target|
+      next unless target.points == 5
+
+      pulse = Math.sin(Kernel.tick_count * 0.25) * 6
+
+      target.w = target.base_size + pulse
+      target.h = target.base_size + pulse
+
+      target.y += 5
+
+      if target.y > args.grid.h + target.base_size
+        target.y = 0 - target.base_size
+      end
+
+      if Kernel.tick_count - target.born_at > 300
+        target.dead = true
+      end
+    end
+  end
+
   def spawn_explosion(x, y)
     size = 64
     {
@@ -49,6 +114,19 @@ module Main
       born_at: Kernel.tick_count,
       path: "sprites/misc/explosion-0.png"
     }
+  end
+
+  def update_explosions(args)
+    args.state.explosions.each do |explosion|
+      age = Kernel.tick_count - explosion.born_at
+      sprite_index = age.idiv(4)
+
+      if sprite_index >= 6
+        explosion.dead = true
+      else
+        explosion.path = "sprites/misc/explosion-#{sprite_index}.png"
+      end
+    end
   end
 
   def fire_input?(args)
@@ -204,7 +282,6 @@ module Main
     args.state.clouds ||= [
       spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
     ]
-
     args.state.explosions ||= []
 
     args.state.score ||= 0
@@ -228,13 +305,10 @@ module Main
 
     args.state.next_gold_spawn ||= Kernel.tick_count + Numeric.rand(480..900)
 
-    if Kernel.tick_count >= args.state.next_gold_spawn &&
-      args.state.targets.none? { |t| t.points == 5 }
-
+    if Kernel.tick_count >= args.state.next_gold_spawn && args.state.targets.none? { |t| t.points == 5 }
       args.state.targets << spawn_gold_target(args)
 
-      args.state.next_gold_spawn =
-        Kernel.tick_count + Numeric.rand(480..900)
+      args.state.next_gold_spawn = Kernel.tick_count + Numeric.rand(480..900)
     end
 
     if fire_input?(args)
@@ -250,74 +324,10 @@ module Main
       }
     end
 
-    args.state.clouds.each do |cloud|
-      cloud.x -= cloud.speed
-      cloud_len = cloud.x + cloud.w
-
-      if cloud_len.negative?
-        cloud.dead = true
-        args.state.clouds << spawn_cloud(args)
-        next
-      end
-    end
-
-    args.state.fireballs.each do |fireball|
-      fireball.x += args.state.player.speed + 2
-
-      age = Kernel.tick_count - fireball.born_at
-
-      fireball.y = fireball.start_y + Math.sin(age * 0.3) * 5
-
-      if fireball.x > args.grid.w
-        fireball.dead = true
-        next
-      end
-
-      args.state.targets.each do |target|
-        if args.geometry.intersect_rect?(target, fireball)
-          args.outputs.sounds << "sounds/target.wav"
-          target.dead = true
-          fireball.dead = true
-          if target.points == 1
-            args.state.score += target.points
-            args.state.targets << spawn_target(args)
-          end
-          args.state.explosions << spawn_explosion(target.x, target.y)
-
-          args.state.shake = 8
-        end
-      end
-    end
-
-    args.state.targets.each do |target|
-      next unless target.points == 5
-
-      pulse = Math.sin(Kernel.tick_count * 0.25) * 6
-
-      target.w = target.base_size + pulse
-      target.h = target.base_size + pulse
-
-      target.y += 5
-
-      if target.y > args.grid.h + target.base_size
-        target.y = 0 - target.base_size
-      end
-
-      if Kernel.tick_count - target.born_at > 300
-        target.dead = true
-      end
-    end
-
-    args.state.explosions.each do |explosion|
-      age = Kernel.tick_count - explosion.born_at
-      sprite_index = age.idiv(4)
-
-      if sprite_index >= 6
-        explosion.dead = true
-      else
-        explosion.path = "sprites/misc/explosion-#{sprite_index}.png"
-      end
-    end
+    update_clouds(args)
+    update_fireballs_and_targets(args)
+    update_golden_targets(args)
+    update_explosions(args)
 
     args.state.targets.reject! { |t| t.dead }
     args.state.fireballs.reject! { |f| f.dead }
