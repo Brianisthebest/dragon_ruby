@@ -9,6 +9,22 @@ module Main
       w: size,
       h: size,
       path: 'sprites/misc/target.png',
+      points: 1
+    }
+  end
+
+  def spawn_gold_target(args)
+    size = 64
+
+    {
+      x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
+      y: rand(args.grid.h - size * 2) + size - 64,
+      w: size,
+      h: size,
+      base_size: size,
+      path: "sprites/misc/golden-target.png",
+      points: 5,
+      born_at: Kernel.tick_count
     }
   end
 
@@ -210,6 +226,17 @@ module Main
 
     handle_player_movement(args)
 
+    args.state.next_gold_spawn ||= Kernel.tick_count + Numeric.rand(480..900)
+
+    if Kernel.tick_count >= args.state.next_gold_spawn &&
+      args.state.targets.none? { |t| t.points == 5 }
+
+      args.state.targets << spawn_gold_target(args)
+
+      args.state.next_gold_spawn =
+        Kernel.tick_count + Numeric.rand(480..900)
+    end
+
     if fire_input?(args)
       args.outputs.sounds << "sounds/fireball.wav"
       args.state.fireballs << {
@@ -251,7 +278,7 @@ module Main
           args.outputs.sounds << "sounds/target.wav"
           target.dead = true
           fireball.dead = true
-          args.state.score += 1
+          args.state.score += target.points
           args.state.targets << spawn_target(args)
           args.state.explosions << spawn_explosion(target.x, target.y)
 
@@ -260,8 +287,27 @@ module Main
       end
     end
 
+    args.state.targets.each do |target|
+      next unless target.points == 5
+
+      pulse = Math.sin(Kernel.tick_count * 0.25) * 6
+
+      target.w = target.base_size + pulse
+      target.h = target.base_size + pulse
+
+      target.y += 5
+
+      if target.y > args.grid.h + target.base_size
+        target.y = 0 - target.base_size
+      end
+
+      if Kernel.tick_count - target.born_at > 300
+        target.dead = true
+      end
+    end
+
     args.state.explosions.each do |explosion|
-      age = Kernel.tick_count -  explosion.born_at
+      age = Kernel.tick_count - explosion.born_at
       sprite_index = age.idiv(4)
 
       if sprite_index >= 6
@@ -275,8 +321,6 @@ module Main
     args.state.fireballs.reject! { |f| f.dead }
     args.state.clouds.reject! { |c| c.dead }
     args.state.explosions.reject! { |e| e.dead }
-
-    # args.outputs.sprites << [args.state.clouds, args.state.player, args.state.fireballs, args.state.explosions, args.state.targets]
     sprites = []
 
     [
@@ -389,7 +433,7 @@ module Main
       y: 280,
       w: 100,
       h: 80,
-      speed: 12,
+      speed: 12
     }
 
     args.outputs.sprites << {
