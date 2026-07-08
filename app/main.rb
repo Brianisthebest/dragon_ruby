@@ -278,8 +278,10 @@ module Main
           args.outputs.sounds << "sounds/target.wav"
           target.dead = true
           fireball.dead = true
-          args.state.score += target.points
-          args.state.targets << spawn_target(args)
+          if target.points == 1
+            args.state.score += target.points
+            args.state.targets << spawn_target(args)
+          end
           args.state.explosions << spawn_explosion(target.x, target.y)
 
           args.state.shake = 8
