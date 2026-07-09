@@ -1,16 +1,25 @@
 module Main
   FPS = 60
 
-  def spawn_target(args)
+  def spawn_target(args, existing_targets)
     size = 64
-    {
-      x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
-      y: rand(args.grid.h - size * 2) + size - 64,
-      w: size,
-      h: size,
-      path: 'sprites/misc/target.png',
-      points: 1
-    }
+
+    loop do
+      target = {
+        x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
+        y: rand(args.grid.h - size * 2) + size - 64,
+        w: size,
+        h: size,
+        path: 'sprites/misc/target.png',
+        points: 1
+      }
+
+      overlapping = existing_targets.any? do |other|
+        args.geometry.intersect_rect?(target, other)
+      end
+
+      return target unless overlapping
+    end
   end
 
   def update_fireballs_and_targets(args)
@@ -34,7 +43,7 @@ module Main
 
           if target.points == 1
             args.state.score += target.points
-            args.state.targets << spawn_target(args)
+            args.state.targets << spawn_target(args, args.state.targets)
           else
             args.state.score += target.points
           end
@@ -55,6 +64,8 @@ module Main
       w: size,
       h: size,
       base_size: size,
+      y_speed: 5,
+      x_speed: 3,
       path: "sprites/misc/golden-target.png",
       points: 5,
       born_at: Kernel.tick_count
@@ -94,10 +105,25 @@ module Main
       target.w = target.base_size + pulse
       target.h = target.base_size + pulse
 
-      target.y += 5
+      target.y += target.y_speed
+      target.x += target.x_speed
 
-      if target.y > args.grid.h + target.base_size
-        target.y = 0 - target.base_size
+      left_limit = args.grid.w * 0.6
+
+      if target.x <= left_limit
+        target.x = left_limit
+        target.x_speed *= -1
+      elsif target.x >= args.grid.w - target.w
+        target.x = args.grid.w - target.w
+        target.x_speed *= -1
+      end
+
+      if target.y >= args.grid.h - target.h
+        target.y = args.grid.h - target.h
+        target.y_speed *= -1
+      elsif target.y <= 0
+        target.y = 0
+        target.y_speed *= -1
       end
 
       if Kernel.tick_count - target.born_at > 300
@@ -278,9 +304,14 @@ module Main
     args.state.player.path = "sprites/misc/dragon-#{player_sprite_index}.png"
 
     args.state.fireballs ||= []
-    args.state.targets ||= [
-      spawn_target(args), spawn_target(args), spawn_target(args)
-    ]
+    args.state.targets ||= []
+
+    if args.state.targets.empty?
+      3.times do
+        args.state.targets << spawn_target(args, args.state.targets)
+      end
+    end
+    
     args.state.clouds ||= [
       spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
     ]
@@ -293,7 +324,7 @@ module Main
 
     if args.state.timer.zero?
       args.audio.delete(:music)
-      args.outputs.sounds << "sounds/game-over.wav"
+      args.outputs.sounds << "sounds/game-over.mp3"
       args.state.scene = "game_over"
       return
     end
@@ -309,7 +340,7 @@ module Main
 
     if Kernel.tick_count >= args.state.next_gold_spawn && args.state.targets.none? { |t| t.points == 5 }
       args.state.targets << spawn_gold_target(args)
-
+      args.outputs.sounds << "sounds/bonus.mp3"
       args.state.next_gold_spawn = Kernel.tick_count + Numeric.rand(480..900)
     end
 
@@ -336,7 +367,7 @@ module Main
     args.state.clouds.reject! { |c| c.dead }
     args.state.explosions.reject! { |e| e.dead }
     sprites = []
-
+    
     [
       args.state.clouds,
       [args.state.player],
@@ -400,7 +431,7 @@ module Main
 
   def title_tick(args)
     if fire_input?(args)
-      args.outputs.sounds << "sounds/game-over.wav"
+      args.outputs.sounds << "sounds/game-over.mp3"
       args.state.scene = "gameplay"
       return
     end
@@ -469,7 +500,7 @@ module Main
       when "title"
         play_music(args, "sounds/title-music.mp3")
       when "gameplay"
-        play_music(args,  "sounds/flight.ogg")
+        play_music(args,  "sounds/flight.mp3")
       end
 
       args.state.previous_scene = args.state.scene
