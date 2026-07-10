@@ -1,6 +1,19 @@
-* EXCEPTION: 'spawn_target': wrong number of arguments (2 for 1)
+* EXCEPTION:
+* ERROR: :+ method missing on ~NilClass~.
+
+#+begin_src ~NilClass#inspect~
+nil
+#+end_src ~NilClass#inspect~
+
+
+
+The method named
+  :+
+with args
+  [0]
+doesn't exist on [NilClass, NilClassFalseClass].
+
+(suggestions above)
 ** Backtrace:
-*** app/main.rb:4:in spawn_target
-*** app/main.rb:309:in gameplay_tick
-*** app/main.rb:308:in gameplay_tick
-*** app/main.rb:506:in tick
+*** app/main.rb:96:in level_1_tick
+*** app/main.rb:475:in tick
