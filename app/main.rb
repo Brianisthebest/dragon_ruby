@@ -255,7 +255,7 @@ module Main
       w: args.grid.w,
       h: args.grid.h,
       r: 0,
-      g: 100,
+      g: 0,
       b: 0,
     }
 
@@ -279,9 +279,14 @@ module Main
       end
     end
 
-    args.state.clouds ||= [
-      spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args), spawn_cloud(args)
-    ]
+    args.state.stars ||= []
+    
+    if args.state.stars.empty?
+      3000.times do
+        args.state.stars << spawn_star(args)
+      end
+    end
+
     args.state.explosions ||= []
 
     args.state.score ||= 0
@@ -324,19 +329,18 @@ module Main
       }
     end
 
-    update_clouds(args)
+    update_stars(args)
     update_fireballs_and_targets(args)
     update_golden_targets(args)
     update_explosions(args)
 
     args.state.targets.reject! { |t| t.dead }
     args.state.fireballs.reject! { |f| f.dead }
-    args.state.clouds.reject! { |c| c.dead }
+    args.state.stars.reject! { |c| c.dead }
     args.state.explosions.reject! { |e| e.dead }
     sprites = []
 
     [
-      args.state.clouds,
       [args.state.player],
       args.state.fireballs,
       args.state.explosions,
@@ -349,6 +353,7 @@ module Main
     end
 
     args.outputs.sprites << sprites
+    args.outputs.solids << args.state.stars.reject(&:dead)
 
     labels = []
     labels << {
@@ -356,6 +361,9 @@ module Main
       y: args.grid.h - 40,
       text: "Score: #{args.state.score}",
       size_px: 30,
+      r: 255,
+      g: 255,
+      b: 255
     }
     labels << {
       x: args.grid.w - 40,
@@ -363,6 +371,9 @@ module Main
       text: "Time Left: #{(args.state.level_2_timer / FPS).round}",
       size_px: 26,
       anchor_x: 1,
+      r: 255,
+      g: 255,
+      b: 255
     }
     args.outputs.labels << labels
   end
@@ -468,6 +479,8 @@ module Main
         play_music(args, "sounds/title-music.mp3")
       when "level_1"
         play_music(args,  "sounds/flight.mp3")
+      when "level_2"
+        play_music(args,  "sounds/space.mp3")
       end
 
       args.state.previous_scene = args.state.scene
@@ -567,6 +580,22 @@ private
     }
   end
 
+  def spawn_star(args)
+    size = Numeric.rand(1..3)
+    brightness = Numeric.rand(120..255)
+
+    {
+      x: rand(args.grid.w) + 450,
+      y: rand(args.grid.h),
+      w: size,
+      h: size,
+      speed: Numeric.rand(2..10),
+      r: brightness,
+      g: brightness,
+      b: brightness
+    }
+  end
+
   def update_clouds(args)
     args.state.clouds.each do |cloud|
       cloud.x -= cloud.speed
@@ -575,6 +604,18 @@ private
       if cloud_len.negative?
         cloud.dead = true
         args.state.clouds << spawn_cloud(args)
+        next
+      end
+    end
+  end
+
+  def update_stars(args)
+    args.state.stars.each do |star|
+      star.x -= star.speed
+
+      if star.x + star.w < 0
+        star.dead = true
+        args.state.stars << spawn_star(args)
         next
       end
     end
