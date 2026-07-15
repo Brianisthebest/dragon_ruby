@@ -145,7 +145,7 @@ module Main
     args.state.explosions ||= []
 
     args.state.score ||= 0
-    args.state.timer ||= 20 * FPS
+    args.state.timer ||= 5 * FPS
 
     args.state.timer -= 1
 
@@ -259,6 +259,15 @@ module Main
       b: 0,
     }
 
+    args.outputs.sprites << {
+      x: args.grid.w - 230,
+      y: args.grid.h - 230, 
+      w: 135,
+      h: 135,
+      path: 'sprites/misc/Lava.png'
+
+    }
+
     args.state.player ||= {
       x: 120,
       y: 280,
@@ -270,24 +279,26 @@ module Main
     player_sprite_index = 0.frame_index(count: 6, hold_for: 6, repeat: true)
     args.state.player.path = "sprites/misc/dragon-#{player_sprite_index}.png"
 
+    args.state.player_health ||= 5
+    args.state.enemy_fireballs ||= []
     args.state.fireballs ||= []
-    args.state.targets ||= []
+    args.state.enemies ||= []
 
-    if args.state.targets.empty?
+    if args.state.enemies.empty?
       3.times do
-        args.state.targets << spawn_target(args, args.state.targets)
+        args.state.enemies << spawn_enemy(args, args.state.enemies)
       end
     end
 
     args.state.stars ||= []
     
     if args.state.stars.empty?
-      3000.times do
+      1500.times do
         args.state.stars << spawn_star(args)
       end
     end
 
-    args.state.explosions ||= []
+    args.state.enemy_explosions ||= []
 
     args.state.score ||= 0
     args.state.level_2_timer ||= 20 * FPS
@@ -330,21 +341,31 @@ module Main
     end
 
     update_stars(args)
-    update_fireballs_and_targets(args)
-    update_golden_targets(args)
-    update_explosions(args)
+    update_enemies(args)
+    update_fireballs_and_enemies(args)
+    update_enemy_fireballs(args)
+    update_enemy_explosions(args)
 
-    args.state.targets.reject! { |t| t.dead }
+    if args.state.player_health <= 0
+      args.audio.delete(:music)
+      args.outputs.sounds << "sounds/game-over.mp3"
+      args.state.scene = "game_over"
+      return
+    end
+
+    args.state.enemies.reject! { |e| e.dead }
     args.state.fireballs.reject! { |f| f.dead }
+    args.state.enemy_fireballs.reject! { |f| f.dead }
     args.state.stars.reject! { |c| c.dead }
-    args.state.explosions.reject! { |e| e.dead }
+    args.state.enemy_explosions.reject! { |e| e.dead }
     sprites = []
 
     [
       [args.state.player],
       args.state.fireballs,
-      args.state.explosions,
-      args.state.targets
+      args.state.enemy_explosions,
+      args.state.enemies,
+      args.state.enemy_fireballs
     ].flatten.each do |sprite|
       sprites << sprite.merge(
         x: sprite.x + shake_x,
@@ -356,6 +377,16 @@ module Main
     args.outputs.solids << args.state.stars.reject(&:dead)
 
     labels = []
+    labels << {
+      x: args.grid.w / 2,
+      y: args.grid.h - 40,
+      text: "Health: #{args.state.player_health}",
+      size_px: 25,
+      anchor_x: 0.5,
+      r: 255,
+      g: 255,
+      b: 255
+    } 
     labels << {
       x: 40,
       y: args.grid.h - 40,
@@ -519,6 +550,129 @@ private
     end
   end
 
+  def spawn_enemy(args, existing_enemies)
+    size = 128
+
+    loop do
+      enemy = {
+        x: rand(args.grid.w * 0.4) + args.grid.w * 0.6 - size,
+        y: rand(args.grid.h - size * 2) + size - 64,
+        w: size,
+        h: size,
+        path: 'sprites/misc/enemies.png',
+        angle: 90,
+        points: 1,
+        animate_frame_count: 28,
+        born_at: Kernel.tick_count
+      }
+
+      overlapping = existing_enemies.any? do |other|
+        args.geometry.intersect_rect?(enemy, other)
+      end
+
+      return enemy unless overlapping
+    end
+  end
+
+  def update_fireballs_and_enemies(args)
+    args.state.fireballs.each do |fireball|
+      fireball.x += args.state.player.speed + 2
+
+      age = Kernel.tick_count - fireball.born_at
+
+      fireball.y = fireball.start_y + Math.sin(age * 0.3) * 5
+
+      if fireball.x > args.grid.w
+        fireball.dead = true
+        next
+      end
+
+      args.state.enemies.each do |enemy|
+        if args.geometry.intersect_rect?(enemy, fireball)
+          args.outputs.sounds << "sounds/target.wav"
+          enemy.dead = true
+          fireball.dead = true
+          args.state.score += enemy.points
+          args.state.enemies << spawn_enemy(args, args.state.enemies)
+          args.state.enemy_explosions << spawn_enemy_explosion(enemy.x, enemy.y)
+          args.state.shake = 8
+        end
+      end
+    end
+  end
+
+  def update_enemies(args)
+    args.state.enemies.each do |enemy|
+      update_enemy_animations(args, enemy)
+      fire_enemy_fireballs(args, enemy)
+    end
+  end
+
+  def fire_enemy_fireballs(args, enemy)
+    enemy.next_fire_at ||= Kernel.tick_count + Numeric.rand(90..180)
+
+    if Kernel.tick_count >= enemy.next_fire_at
+      args.outputs.sounds << "sounds/fireball.wav"
+      args.state.enemy_fireballs << spawn_enemy_fireball(enemy)
+      enemy.next_fire_at = Kernel.tick_count + Numeric.rand(120..240)
+    end
+  end
+
+  def spawn_enemy_fireball(enemy)
+    {
+      x: enemy.x,
+      y: enemy.y + enemy.h / 2 - 32,
+      w: 36,
+      h: 64,
+      start_y: enemy.y + enemy.h / 2 - 64,
+      born_at: Kernel.tick_count,
+      path: 'sprites/misc/rocket.png',
+      animate_frame_count: 4,
+      tile_x: 0,
+      tile_y: 0,
+      tile_w: 9,
+      tile_h: 16,
+      angle: 90
+    }
+  end
+
+  def update_enemy_fireballs(args)
+    args.state.enemy_fireballs.each do |fireball|
+      fireball.x -= 10
+
+      frame_index = fireball.born_at.frame_index(
+        count: fireball.animate_frame_count,
+        hold_for: 4,
+        repeat: true
+      )
+      fireball.tile_x = frame_index * 9
+
+      if fireball.x + fireball.w < 0
+        fireball.dead = true
+        next
+      end
+      if args.geometry.intersect_rect?(args.state.player, fireball)
+        fireball.dead = true
+        args.state.player_health -= 1
+        args.outputs.sounds << "sounds/target.wav"
+        args.state.shake = 8
+      end
+    end
+  end
+
+  def update_enemy_animations(args, enemy)
+    frame_index = enemy.born_at.frame_index(
+      count: enemy.animate_frame_count,
+      hold_for: 4,
+      repeat: true
+    )
+
+    enemy.tile_x = frame_index * 64
+    enemy.tile_y = 0
+    enemy.tile_w = 64
+    enemy.tile_h = 64
+  end
+
   def update_fireballs_and_targets(args)
     args.state.fireballs.each do |fireball|
     fireball.x += args.state.player.speed + 2
@@ -669,6 +823,23 @@ private
     }
   end
 
+  def spawn_enemy_explosion(x, y)
+    size = 64
+    {
+      x: x,
+      y: y,
+      h: size,
+      w: size,
+      angle: 90,
+      born_at: Kernel.tick_count,
+      path: "sprites/misc/enemies-explode.png",
+      tile_x: 0,
+      tile_y: 0,
+      tile_w: 64,
+      tile_h: 64
+    }
+  end
+
   def update_explosions(args)
     args.state.explosions.each do |explosion|
       age = Kernel.tick_count - explosion.born_at
@@ -682,6 +853,19 @@ private
     end
   end
 
+  def update_enemy_explosions(args)
+    args.state.enemy_explosions.each do |explosion|
+      age = Kernel.tick_count - explosion.born_at
+      frame_index = age.idiv(4)
+
+      if frame_index >= 18
+        explosion.dead = true
+      else
+        explosion.tile_x = frame_index * 64
+      end
+    end
+  end
+  
   def fire_input?(args)
     args.inputs.keyboard.key_down.z ||
       args.inputs.keyboard.key_down.j ||
