@@ -285,15 +285,15 @@ module Main
     args.state.enemies ||= []
 
     if args.state.enemies.empty?
-      3.times do
+      5.times do
         args.state.enemies << spawn_enemy(args, args.state.enemies)
       end
     end
 
     args.state.stars ||= []
-    
+
     if args.state.stars.empty?
-      1500.times do
+      750.times do
         args.state.stars << spawn_star(args)
       end
     end
@@ -318,14 +318,6 @@ module Main
     end
 
     handle_player_movement(args)
-
-    args.state.next_gold_spawn ||= Kernel.tick_count + Numeric.rand(480..900)
-
-    if Kernel.tick_count >= args.state.next_gold_spawn && args.state.targets.none? { |t| t.points == 5 }
-      args.state.targets << spawn_gold_target(args)
-      args.outputs.sounds << "sounds/bonus.mp3"
-      args.state.next_gold_spawn = Kernel.tick_count + Numeric.rand(480..900)
-    end
 
     if fire_input?(args)
       args.outputs.sounds << "sounds/fireball.wav"
