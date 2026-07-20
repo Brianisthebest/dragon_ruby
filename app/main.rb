@@ -4,7 +4,11 @@ module Main
   HIGH_SCORE_FILE = "high-score.txt"
 
   def game_over_tick(args)
-    args.state.high_score ||= DR.read_file(HIGH_SCORE_FILE).to_i
+    args.state.high_score ||= if DR.file_exists?(HIGH_SCORE_FILE)
+                                 DR.read_file(HIGH_SCORE_FILE).to_i
+                               else
+                                 0
+                               end
 
     args.state.timer -= 1
 
@@ -145,7 +149,7 @@ module Main
     args.state.explosions ||= []
 
     args.state.score ||= 0
-    args.state.timer ||= 5 * FPS
+    args.state.timer ||= 60 * FPS
 
     args.state.timer -= 1
 
@@ -264,7 +268,7 @@ module Main
       y: args.grid.h - 230, 
       w: 135,
       h: 135,
-      path: 'sprites/misc/Lava.png'
+      path: 'sprites/misc/lava.png'
 
     }
 
@@ -301,7 +305,7 @@ module Main
     args.state.enemy_explosions ||= []
 
     args.state.score ||= 0
-    args.state.level_2_timer ||= 20 * FPS
+    args.state.level_2_timer ||= 60 * FPS
 
     args.state.level_2_timer -= 1
 
@@ -483,10 +487,10 @@ module Main
     }
 
     args.outputs.sprites << {
-      x: -20,
-      y: 225, 
-      w: 350,
-      h: 350,
+      x: args.grid.w - 425,
+      y: args.grid.h - 400,
+      w: 400,
+      h: 400,
       path: 'sprites/misc/title_dragon.png'
 
     }
